@@ -1,0 +1,31 @@
+name: TF Object Detection Train/Eval
+description: Trains and evaluate a model using TF object detection API
+
+inputs:
+- {name: pipeline_config, type: ConfigFile, description: 'Path to pipeline config file.'}
+- {name: record_summaries, type: bool, default: False, optional: true, description: 'Whether to store training events or not.'}
+- {name: label_map, type: pbtxt, description: 'mapping of class names and ids'}
+- {name: data, type: LocalPath, description: 'Path where data is stored.'}
+outputs:
+- {name: model_dir, type: LocalPath, description: 'Path to output model directory where event and checkpoint files will be written.'}
+
+implementation:
+  container:
+    image: jsonmathsai/tfodv2:latest
+    command:
+    - sh
+    - -c
+    - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'tf-models-official==2.3.0') && "$0" "$@"
+    - python3
+    - model_main_tf2.py
+    args:
+    - --pipeline_config_path
+    - {inputPath: pipeline_config}
+    - --record_summaries
+    - {inputPath: record_summaries}
+    - --model_dir
+    - {outputPath: model_dir}
+    - --label_map
+    - {inputPath: label_map}
+    - --records_dir
+    - {inputPath: data}

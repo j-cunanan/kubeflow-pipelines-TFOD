@@ -1,0 +1,61 @@
+name: Train eval
+inputs:
+- {name: pipeline_config}
+- {name: record_summaries}
+- {name: label_map}
+- {name: data}
+- {name: model_dir}
+implementation:
+  container:
+    image: jsonmathsai/tfodv2:latest
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def train_eval(pipeline_config, \n               record_summaries, \n     \
+      \          label_map,\n               data,\n\n              model_dir):\n \
+      \   from pathlib import Path\n    import subprocess\n    import shutil\n   \
+      \ import re\n    import tarfile\n    import sys\n\n#     def load(path):\n#\
+      \         return get_file(Path(path).name, path, extract=True)\n\n#     model_path\
+      \ = Path(load(pretrained))\n#     model_path = str(model_path.with_name(model_path.name.split('.')[0]))\n\
+      #     shutil.move(model_path, '/model')\n\n#     with tarfile.open(mode='r:gz',\
+      \ fileobj=records) as tar:\n#         tar.extractall('/records')\n\n#     with\
+      \ open('/pipeline.config', 'w') as f:\n#         config = Path('samples/configs/faster_rcnn_resnet101_pets.config').read_text()\n\
+      #         config = re.sub(r'PATH_TO_BE_CONFIGURED\\/model\\.ckpt', '/model/model.ckpt',\
+      \ config)\n#         config = re.sub('PATH_TO_BE_CONFIGURED', '/records', config)\n\
+      #         f.write(config)\n\n#     shutil.copy('data/pet_label_map.pbtxt', '/records/pet_label_map.pbtxt')\n\
+      \    print(\"Fix TF Official installation\")\n    subprocess.check_call(\n \
+      \       [\n            sys.executable,\n            \"-m\", \"pip\", \"install\"\
+      , \n            \"--quiet\", \n            \"--no-warn-script-location\", \n\
+      \            \"tf-models-official==2.3.0\"\n        ],\n    )\n#     print(\"\
+      Training model\")\n#     subprocess.check_call(\n#         [\n#            \
+      \ sys.executable,\n#             'model_main_tf2.py',\n#             '--model_dir',\n\
+      #              model_dir,\n#             '--num_train_steps',\n#           \
+      \  '1',\n#             '--pipeline_config_path',\n#             pipeline_config,\n\
+      #         ],\n#     )\n    print(\"Evaluating model\")\n    subprocess.check_call(\n\
+      \        [\n            sys.executable,\n            'model_main_tf2.py',\n\
+      \            '--model_dir',\n            model_dir,\n            '--checkpoint_dir',\n\
+      \            model_dir,\n            '--pipeline_config_path',\n           \
+      \ pipeline_config,\n        ],\n    )\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Train\
+      \ eval', description='')\n_parser.add_argument(\"--pipeline-config\", dest=\"\
+      pipeline_config\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --record-summaries\", dest=\"record_summaries\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--label-map\", dest=\"label_map\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--data\", dest=\"data\"\
+      , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --model-dir\", dest=\"model_dir\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parsed_args = vars(_parser.parse_args())\n\n_outputs = train_eval(**_parsed_args)\n"
+    args:
+    - --pipeline-config
+    - {inputPath: pipeline_config}
+    - --record-summaries
+    - {inputPath: record_summaries}
+    - --label-map
+    - {inputPath: label_map}
+    - --data
+    - {inputPath: data}
+    - --model-dir
+    - {inputPath: model_dir}
