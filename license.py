@@ -2,8 +2,7 @@ import json
 import kfp
 from kfp.components import func_to_container_op, InputPath, OutputPath, load_component_from_file, load_component_from_url
 
-
-# %%
+                    
 @func_to_container_op
 def download_records(
     output_dir: OutputPath(),
@@ -61,15 +60,22 @@ def read_files_python_op(input_dir_path: InputPath()):
 # ExampleValidator_op = load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/0cc4bbd4/components/tfx/ExampleValidator/with_URI_IO/component.yaml')
 
 train_eval_op = load_component_from_file("train_eval/component.yaml")
-
+tfrecordgen_op = load_component_from_file("TFRecordsGen/component.yaml")
         
 @kfp.dsl.pipeline(name='First Pipeline', description='describe this')
-def my_pipeline(generated_output_uri='.'):
+def my_pipeline(data_url='https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1',
+            converter_script_url='https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1',
+            pbtxt_url='https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',):
     
-    dl_task = download_records()
-    list_dir_files_python_op(dl_task.outputs['output_dir'])
-    read_files_python_op(dl_task.outputs['pipeline_config'])
-    read_files_python_op(dl_task.outputs['label_map'])
+#     dl_task = download_records()
+    conversion_task = tfrecordgen_op(data_url=data_url,
+                                     converter_script_url=converter_script_url,
+                                     pbtxt_url=pbtxt_url)
+    
+    list_dir_files_python_op(conversion_task.outputs['output_dir'])
+#     list_dir_files_python_op(dl_task.outputs['output_dir'])
+#     read_files_python_op(dl_task.outputs['pipeline_config'])
+#     read_files_python_op(dl_task.outputs['label_map'])
     
 #     examplegen_task = ImportExampleGen_op(input_base=dl_task.outputs['output_dir'])
 #     statistics_task = StatisticsGen_op(examples_uri=dl_task.outputs['output_dir'],
@@ -91,11 +97,11 @@ def my_pipeline(generated_output_uri='.'):
 #         output_anomalies_uri=generated_output_uri,
 #     )
     
-    modelling_task = train_eval_op(pipeline_config=dl_task.outputs['pipeline_config'],
-                                   record_summaries=False,
-                                   label_map=dl_task.outputs['label_map'],
-                                   data=dl_task.outputs['output_dir'],
-                                   model_dir=dl_task.outputs['model_dir'])
+#     modelling_task = train_eval_op(pipeline_config=dl_task.outputs['pipeline_config'],
+#                                    record_summaries=False,
+#                                    label_map=dl_task.outputs['label_map'],
+#                                    data=dl_task.outputs['output_dir'],
+#                                    model_dir=dl_task.outputs['model_dir'])
 #     model_dir.container.set_gpu_limit(1)
     
 #     list_dir_files_python_op(modelling_task.output)
@@ -103,3 +109,4 @@ def my_pipeline(generated_output_uri='.'):
 if __name__ == '__main__':
     # Compiling the pipeline
     kfp.compiler.Compiler().compile(my_pipeline, 'my_pipeline.yaml')
+    

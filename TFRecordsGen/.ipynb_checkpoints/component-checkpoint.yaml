@@ -1,0 +1,108 @@
+name: Conversion task
+description: Transforms data from images+xml to TensorFlow records.
+inputs:
+- {name: data_url, default: 'https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1',
+  optional: true}
+- {name: converter_script_url, default: 'https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1',
+  optional: true}
+- {name: pbtxt_url, default: 'https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',
+  optional: true}
+outputs:
+- {name: output_dir}
+implementation:
+  container:
+    image: jsonmathsai/tfodv2:latest
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def _make_parent_dirs_and_return_path(file_path: str):
+          import os
+          os.makedirs(os.path.dirname(file_path), exist_ok=True)
+          return file_path
+
+      def conversion_task(
+                  output_dir,
+                  data_url='https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1',
+                  converter_script_url='https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1',
+                  pbtxt_url='https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',
+                          ):
+
+                  """Transforms data from images+xml to TensorFlow records."""
+
+                  import subprocess
+                  import sys
+
+                  subprocess.run([
+                      'wget',
+                      '-O',
+                      'data.zip',
+                      data_url
+                  ],
+                  check=True)
+
+                  subprocess.run([
+                      'unzip',
+                      'data.zip',
+                      '-d',
+                      'data'
+                  ],
+                  check=True)
+
+                  subprocess.run([
+                      'wget',
+                      '-O',
+                      'converter.py',
+                      converter_script_url
+                  ],
+                  check=True)
+
+                  subprocess.run([
+                      'wget',
+                      '-O',
+                      'label_map.pbtxt',
+                      pbtxt_url
+                  ],
+                  check=True)
+
+                  subprocess.check_call(
+                      [
+                          sys.executable,
+                          'converter.py',
+                          '--data_dir=data',
+                          '--label_map_path=label_map.pbtxt',
+                          '--output_dir',
+                          output_dir
+                      ])
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Conversion task', description='Transforms data from images+xml to TensorFlow records.')
+      _parser.add_argument("--data-url", dest="data_url", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--converter-script-url", dest="converter_script_url", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--pbtxt-url", dest="pbtxt_url", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = conversion_task(**_parsed_args)
+    args:
+    - if:
+        cond: {isPresent: data_url}
+        then:
+        - --data-url
+        - {inputValue: data_url}
+    - if:
+        cond: {isPresent: converter_script_url}
+        then:
+        - --converter-script-url
+        - {inputValue: converter_script_url}
+    - if:
+        cond: {isPresent: pbtxt_url}
+        then:
+        - --pbtxt-url
+        - {inputValue: pbtxt_url}
+    - --output-dir
+    - {outputPath: output_dir}
