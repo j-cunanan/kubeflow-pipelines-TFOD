@@ -2,12 +2,13 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: first-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-16T07:11:17.130860',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-16T08:13:32.669856',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "describe this", "inputs":
       [{"default": "https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1", "name":
       "data_url", "optional": true}, {"default": "https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1",
       "name": "converter_script_url", "optional": true}, {"default": "https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1",
-      "name": "pbtxt_url", "optional": true}], "name": "First Pipeline"}'}
+      "name": "pbtxt_url", "optional": true}, {"default": "1", "name": "num_shards",
+      "optional": true, "type": "Integer"}], "name": "First Pipeline"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4}
 spec:
   entrypoint: first-pipeline
@@ -16,7 +17,7 @@ spec:
     container:
       args: [--data-url, '{{inputs.parameters.data_url}}', --converter-script-url,
         '{{inputs.parameters.converter_script_url}}', --pbtxt-url, '{{inputs.parameters.pbtxt_url}}',
-        --output-dir, /tmp/outputs/output_dir/data]
+        --num-shards, '{{inputs.parameters.num_shards}}', --output-dir, /tmp/outputs/output_dir/data]
       command:
       - sh
       - -ec
@@ -34,6 +35,7 @@ spec:
                     data_url,
                     converter_script_url,
                     pbtxt_url,
+                    num_shards,
                     output_dir,
                             ):
 
@@ -81,7 +83,9 @@ spec:
                             '--data_dir=data',
                             '--label_map_path=label_map.pbtxt',
                             '--output_dir',
-                            output_dir
+                            output_dir,
+                            '--num_shards',
+                            num_shards
                         ])
 
         import argparse
@@ -89,6 +93,7 @@ spec:
         _parser.add_argument("--data-url", dest="data_url", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--converter-script-url", dest="converter_script_url", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--pbtxt-url", dest="pbtxt_url", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--num-shards", dest="num_shards", type=str, required=True, default=argparse.SUPPRESS)
         _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
         _parsed_args = vars(_parser.parse_args())
 
@@ -98,6 +103,7 @@ spec:
       parameters:
       - {name: converter_script_url}
       - {name: data_url}
+      - {name: num_shards}
       - {name: pbtxt_url}
     outputs:
       artifacts:
@@ -108,32 +114,35 @@ spec:
           data from images+xml to TensorFlow records.", "implementation": {"container":
           {"args": ["--data-url", {"inputValue": "data_url"}, "--converter-script-url",
           {"inputValue": "converter_script_url"}, "--pbtxt-url", {"inputValue": "pbtxt_url"},
-          "--output-dir", {"outputPath": "output_dir"}], "command": ["sh", "-ec",
-          "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
-          -u \"$program_path\" \"$@\"\n", "def _make_parent_dirs_and_return_path(file_path:
-          str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return
-          file_path\n\ndef conversion_task(\n            data_url,\n            converter_script_url,\n            pbtxt_url,\n            output_dir,\n                    ):\n\n            \"\"\"Transforms
+          "--num-shards", {"inputValue": "num_shards"}, "--output-dir", {"outputPath":
+          "output_dir"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path),
+          exist_ok=True)\n    return file_path\n\ndef conversion_task(\n            data_url,\n            converter_script_url,\n            pbtxt_url,\n            num_shards,\n            output_dir,\n                    ):\n\n            \"\"\"Transforms
           data from images+xml to TensorFlow records.\"\"\"\n\n            import
-          subprocess\n            import sys\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''data.zip'',\n                data_url\n            ],\n            check=True)\n\n            subprocess.run([\n                ''unzip'',\n                ''data.zip'',\n                ''-d'',\n                ''data''\n            ],\n            check=True)\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''converter.py'',\n                converter_script_url\n            ],\n            check=True)\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''label_map.pbtxt'',\n                pbtxt_url\n            ],\n            check=True)\n\n            subprocess.check_call(\n                [\n                    sys.executable,\n                    ''converter.py'',\n                    ''--data_dir=data'',\n                    ''--label_map_path=label_map.pbtxt'',\n                    ''--output_dir'',\n                    output_dir\n                ])\n\nimport
+          subprocess\n            import sys\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''data.zip'',\n                data_url\n            ],\n            check=True)\n\n            subprocess.run([\n                ''unzip'',\n                ''data.zip'',\n                ''-d'',\n                ''data''\n            ],\n            check=True)\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''converter.py'',\n                converter_script_url\n            ],\n            check=True)\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''label_map.pbtxt'',\n                pbtxt_url\n            ],\n            check=True)\n\n            subprocess.check_call(\n                [\n                    sys.executable,\n                    ''converter.py'',\n                    ''--data_dir=data'',\n                    ''--label_map_path=label_map.pbtxt'',\n                    ''--output_dir'',\n                    output_dir,\n                    ''--num_shards'',\n                    num_shards\n                ])\n\nimport
           argparse\n_parser = argparse.ArgumentParser(prog=''Conversion task'', description=''Transforms
           data from images+xml to TensorFlow records.'')\n_parser.add_argument(\"--data-url\",
           dest=\"data_url\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--converter-script-url\",
           dest=\"converter_script_url\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--pbtxt-url\",
-          dest=\"pbtxt_url\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\",
+          dest=\"pbtxt_url\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--num-shards\",
+          dest=\"num_shards\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\",
           dest=\"output_dir\", type=_make_parent_dirs_and_return_path, required=True,
           default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
           = conversion_task(**_parsed_args)\n"], "image": "jsonmathsai/tfodv2:latest"}},
           "inputs": [{"name": "data_url"}, {"name": "converter_script_url"}, {"name":
-          "pbtxt_url"}], "name": "Conversion task", "outputs": [{"name": "output_dir"}]}',
-        pipelines.kubeflow.org/component_ref: '{"digest": "713e6137f85ef9b3b1e8530675364ce1c35bcaf3af7b09a0725d28c3bb773a39",
-          "url": "TFRecordsGen/component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"converter_script_url":
+          "pbtxt_url"}, {"name": "num_shards"}], "name": "Conversion task", "outputs":
+          [{"name": "output_dir"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "753d332c2e8691e2ed6800786c2651d83f73719dc8221baf5125fcd59fe0f0d0", "url":
+          "TFRecordsGen/component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"converter_script_url":
           "{{inputs.parameters.converter_script_url}}", "data_url": "{{inputs.parameters.data_url}}",
-          "pbtxt_url": "{{inputs.parameters.pbtxt_url}}"}'}
+          "num_shards": "{{inputs.parameters.num_shards}}", "pbtxt_url": "{{inputs.parameters.pbtxt_url}}"}'}
   - name: first-pipeline
     inputs:
       parameters:
       - {name: converter_script_url}
       - {name: data_url}
+      - {name: num_shards}
       - {name: pbtxt_url}
     dag:
       tasks:
@@ -143,6 +152,7 @@ spec:
           parameters:
           - {name: converter_script_url, value: '{{inputs.parameters.converter_script_url}}'}
           - {name: data_url, value: '{{inputs.parameters.data_url}}'}
+          - {name: num_shards, value: '{{inputs.parameters.num_shards}}'}
           - {name: pbtxt_url, value: '{{inputs.parameters.pbtxt_url}}'}
       - name: list-dir-files-python-op
         template: list-dir-files-python-op
@@ -195,4 +205,5 @@ spec:
     - {name: data_url, value: 'https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1'}
     - {name: converter_script_url, value: 'https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1'}
     - {name: pbtxt_url, value: 'https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1'}
+    - {name: num_shards, value: '1'}
   serviceAccountName: pipeline-runner

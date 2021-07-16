@@ -65,12 +65,14 @@ tfrecordgen_op = load_component_from_file("TFRecordsGen/component.yaml")
 @kfp.dsl.pipeline(name='First Pipeline', description='describe this')
 def my_pipeline(data_url='https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1',
             converter_script_url='https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1',
-            pbtxt_url='https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',):
+            pbtxt_url='https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',
+            num_shards: int = 1):
     
 #     dl_task = download_records()
     conversion_task = tfrecordgen_op(data_url=data_url,
                                      converter_script_url=converter_script_url,
-                                     pbtxt_url=pbtxt_url)
+                                     pbtxt_url=pbtxt_url,
+                                     num_shards=num_shards)
     
     list_dir_files_python_op(conversion_task.outputs['output_dir'])
 #     list_dir_files_python_op(dl_task.outputs['output_dir'])

@@ -4,6 +4,7 @@ def conversion_task(
             data_url,
             converter_script_url,
             pbtxt_url,
+            num_shards,
             output_dir: OutputPath(),
                     ):
     
@@ -52,7 +53,9 @@ def conversion_task(
                     '--data_dir=data',
                     '--label_map_path=label_map.pbtxt',
                     '--output_dir',
-                    output_dir
+                    output_dir,
+                    '--num_shards',
+                    num_shards
                 ])
 
 if __name__ == '__main__':

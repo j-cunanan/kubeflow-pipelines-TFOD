@@ -4,6 +4,7 @@ inputs:
 - {name: data_url}
 - {name: converter_script_url}
 - {name: pbtxt_url}
+- {name: num_shards}
 outputs:
 - {name: output_dir}
 implementation:
@@ -26,6 +27,7 @@ implementation:
                   data_url,
                   converter_script_url,
                   pbtxt_url,
+                  num_shards,
                   output_dir,
                           ):
 
@@ -73,7 +75,9 @@ implementation:
                           '--data_dir=data',
                           '--label_map_path=label_map.pbtxt',
                           '--output_dir',
-                          output_dir
+                          output_dir,
+                          '--num_shards',
+                          num_shards
                       ])
 
       import argparse
@@ -81,6 +85,7 @@ implementation:
       _parser.add_argument("--data-url", dest="data_url", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--converter-script-url", dest="converter_script_url", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--pbtxt-url", dest="pbtxt_url", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--num-shards", dest="num_shards", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
       _parsed_args = vars(_parser.parse_args())
 
@@ -92,5 +97,7 @@ implementation:
     - {inputValue: converter_script_url}
     - --pbtxt-url
     - {inputValue: pbtxt_url}
+    - --num-shards
+    - {inputValue: num_shards}
     - --output-dir
     - {outputPath: output_dir}
