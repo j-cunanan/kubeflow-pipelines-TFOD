@@ -2,12 +2,14 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: first-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-16T08:13:32.669856',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-19T08:18:32.441830',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "describe this", "inputs":
-      [{"default": "https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1", "name":
+      [{"default": "100", "name": "num_train_steps", "optional": true, "type": "Integer"},
+      {"default": "https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1", "name":
       "data_url", "optional": true}, {"default": "https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1",
       "name": "converter_script_url", "optional": true}, {"default": "https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1",
-      "name": "pbtxt_url", "optional": true}, {"default": "1", "name": "num_shards",
+      "name": "pbtxt_url", "optional": true}, {"default": "http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz",
+      "name": "weights_url", "optional": true}, {"default": "1", "name": "num_shards",
       "optional": true, "type": "Integer"}], "name": "First Pipeline"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4}
 spec:
@@ -137,13 +139,136 @@ spec:
           "TFRecordsGen/component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"converter_script_url":
           "{{inputs.parameters.converter_script_url}}", "data_url": "{{inputs.parameters.data_url}}",
           "num_shards": "{{inputs.parameters.num_shards}}", "pbtxt_url": "{{inputs.parameters.pbtxt_url}}"}'}
+  - name: download-records
+    container:
+      args: [--output-dir, /tmp/outputs/output_dir/data, --pipeline-config, /tmp/outputs/pipeline_config/data,
+        --label-map, /tmp/outputs/label_map/data, --model-dir, /tmp/outputs/model_dir/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def download_records(
+            output_dir,
+            pipeline_config,
+            label_map,
+            model_dir_path
+        ):
+            import subprocess
+            import sys
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+
+            import os, requests
+            os.makedirs(output_dir, exist_ok=True)
+
+            train_data_path = os.path.join(output_dir, 'licence_train.record-00000-of-00001')
+            with open(train_data_path, 'wb') as file_obj:
+                r = requests.get('https://www.dropbox.com/s/6ycrfedafx61kt2/licence_train.record-00000-of-00001?dl=1', allow_redirects=True)
+                file_obj.write(r.content)
+
+            val_data_path = os.path.join(output_dir, 'licence_val.record-00000-of-00001')
+            with open(val_data_path, 'wb') as file_obj:
+                r = requests.get('https://www.dropbox.com/s/6fzvm2xe5dmvcld/licence_val.record-00000-of-00001?dl=1', allow_redirects=True)
+                file_obj.write(r.content)
+
+            with open(pipeline_config, 'wb') as file:
+                r = requests.get("https://www.dropbox.com/s/ftl82cdyf5twgev/licence_plate.config?dl=1", allow_redirects=True)
+                file.write(r.content)
+
+            with open(label_map, 'wb') as file:
+                r = requests.get("https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1", allow_redirects=True)
+                file.write(r.content)
+
+            os.makedirs(model_dir_path, exist_ok=True)
+
+        #     with open(model_dir_zip, 'wb') as file:
+        #         r = requests.get("https://www.dropbox.com/s/72fhfzs0ndpuezk/Archive.zip?dl=1",
+        #                         allow_redirects=True)
+        #         file.write(r.content)
+        #     subprocess.run([
+        #         'wget',
+        #         '-O',
+        #         'model_dir.zip',
+        #         checkpoint_url
+        #     ],
+        #     check=True)
+
+        #     subprocess.run([
+        #         'unzip',
+        #         'data.zip',
+        #         '-d',
+        #         'data'
+        #     ],
+        #     check=True)
+            print('All good now!')
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Download records', description='')
+        _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--pipeline-config", dest="pipeline_config", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--label-map", dest="label_map", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--model-dir", dest="model_dir_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = download_records(**_parsed_args)
+      image: python:3.7
+    outputs:
+      artifacts:
+      - {name: download-records-label_map, path: /tmp/outputs/label_map/data}
+      - {name: download-records-model_dir, path: /tmp/outputs/model_dir/data}
+      - {name: download-records-output_dir, path: /tmp/outputs/output_dir/data}
+      - {name: download-records-pipeline_config, path: /tmp/outputs/pipeline_config/data}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--output-dir", {"outputPath": "output_dir"}, "--pipeline-config",
+          {"outputPath": "pipeline_config"}, "--label-map", {"outputPath": "label_map"},
+          "--model-dir", {"outputPath": "model_dir"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path),
+          exist_ok=True)\n    return file_path\n\ndef download_records(\n    output_dir,\n    pipeline_config,\n    label_map,\n    model_dir_path\n):\n    import
+          subprocess\n    import sys\n    subprocess.check_call([sys.executable, \"-m\",
+          \"pip\", \"install\", \"requests\"])\n\n    import os, requests\n    os.makedirs(output_dir,
+          exist_ok=True)\n\n    train_data_path = os.path.join(output_dir, ''licence_train.record-00000-of-00001'')\n    with
+          open(train_data_path, ''wb'') as file_obj:\n        r = requests.get(''https://www.dropbox.com/s/6ycrfedafx61kt2/licence_train.record-00000-of-00001?dl=1'',
+          allow_redirects=True)\n        file_obj.write(r.content)\n\n    val_data_path
+          = os.path.join(output_dir, ''licence_val.record-00000-of-00001'')\n    with
+          open(val_data_path, ''wb'') as file_obj:\n        r = requests.get(''https://www.dropbox.com/s/6fzvm2xe5dmvcld/licence_val.record-00000-of-00001?dl=1'',
+          allow_redirects=True)\n        file_obj.write(r.content)\n\n    with open(pipeline_config,
+          ''wb'') as file:\n        r = requests.get(\"https://www.dropbox.com/s/ftl82cdyf5twgev/licence_plate.config?dl=1\",
+          allow_redirects=True)\n        file.write(r.content)\n\n    with open(label_map,
+          ''wb'') as file:\n        r = requests.get(\"https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1\",
+          allow_redirects=True)\n        file.write(r.content)\n\n    os.makedirs(model_dir_path,
+          exist_ok=True)\n\n#     with open(model_dir_zip, ''wb'') as file:\n#         r
+          = requests.get(\"https://www.dropbox.com/s/72fhfzs0ndpuezk/Archive.zip?dl=1\",\n#                         allow_redirects=True)\n#         file.write(r.content)\n#     subprocess.run([\n#         ''wget'',\n#         ''-O'',\n#         ''model_dir.zip'',\n#         checkpoint_url\n#     ],\n#     check=True)\n\n#     subprocess.run([\n#         ''unzip'',\n#         ''data.zip'',\n#         ''-d'',\n#         ''data''\n#     ],\n#     check=True)\n    print(''All
+          good now!'')\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Download
+          records'', description='''')\n_parser.add_argument(\"--output-dir\", dest=\"output_dir\",
+          type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--pipeline-config\",
+          dest=\"pipeline_config\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-map\", dest=\"label_map\",
+          type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-dir\",
+          dest=\"model_dir_path\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = download_records(**_parsed_args)\n"], "image": "python:3.7"}}, "name":
+          "Download records", "outputs": [{"name": "output_dir"}, {"name": "pipeline_config"},
+          {"name": "label_map"}, {"name": "model_dir"}]}', pipelines.kubeflow.org/component_ref: '{}'}
   - name: first-pipeline
     inputs:
       parameters:
       - {name: converter_script_url}
       - {name: data_url}
       - {name: num_shards}
+      - {name: num_train_steps}
       - {name: pbtxt_url}
+      - {name: weights_url}
     dag:
       tasks:
       - name: conversion-task
@@ -154,12 +279,35 @@ spec:
           - {name: data_url, value: '{{inputs.parameters.data_url}}'}
           - {name: num_shards, value: '{{inputs.parameters.num_shards}}'}
           - {name: pbtxt_url, value: '{{inputs.parameters.pbtxt_url}}'}
+      - {name: download-records, template: download-records}
       - name: list-dir-files-python-op
         template: list-dir-files-python-op
         dependencies: [conversion-task]
         arguments:
           artifacts:
           - {name: conversion-task-output_dir, from: '{{tasks.conversion-task.outputs.artifacts.conversion-task-output_dir}}'}
+      - name: list-dir-files-python-op-2
+        template: list-dir-files-python-op-2
+        dependencies: [train-eval]
+        arguments:
+          artifacts:
+          - {name: train-eval-model_dir, from: '{{tasks.train-eval.outputs.artifacts.train-eval-model_dir}}'}
+      - name: loadweights-task
+        template: loadweights-task
+        arguments:
+          parameters:
+          - {name: weights_url, value: '{{inputs.parameters.weights_url}}'}
+      - name: train-eval
+        template: train-eval
+        dependencies: [download-records, loadweights-task]
+        arguments:
+          parameters:
+          - {name: num_train_steps, value: '{{inputs.parameters.num_train_steps}}'}
+          artifacts:
+          - {name: download-records-label_map, from: '{{tasks.download-records.outputs.artifacts.download-records-label_map}}'}
+          - {name: download-records-output_dir, from: '{{tasks.download-records.outputs.artifacts.download-records-output_dir}}'}
+          - {name: download-records-pipeline_config, from: '{{tasks.download-records.outputs.artifacts.download-records-pipeline_config}}'}
+          - {name: loadweights-task-output_dir, from: '{{tasks.loadweights-task.outputs.artifacts.loadweights-task-output_dir}}'}
   - name: list-dir-files-python-op
     container:
       args: [--input-dir, /tmp/inputs/input_dir/data]
@@ -200,10 +348,232 @@ spec:
           = list_dir_files_python_op(**_parsed_args)\n"], "image": "python:3.7"}},
           "inputs": [{"name": "input_dir"}], "name": "List dir files python op"}',
         pipelines.kubeflow.org/component_ref: '{}'}
+  - name: list-dir-files-python-op-2
+    container:
+      args: [--input-dir, /tmp/inputs/input_dir/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def list_dir_files_python_op(input_dir_path):
+            import os
+            dir_items = os.listdir(input_dir_path)
+            for dir_item in dir_items:
+                print(dir_item)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='List dir files python op', description='')
+        _parser.add_argument("--input-dir", dest="input_dir_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = list_dir_files_python_op(**_parsed_args)
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: train-eval-model_dir, path: /tmp/inputs/input_dir/data}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--input-dir", {"inputPath": "input_dir"}], "command": ["sh",
+          "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def list_dir_files_python_op(input_dir_path):\n    import
+          os\n    dir_items = os.listdir(input_dir_path)\n    for dir_item in dir_items:\n        print(dir_item)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''List dir files python
+          op'', description='''')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = list_dir_files_python_op(**_parsed_args)\n"], "image": "python:3.7"}},
+          "inputs": [{"name": "input_dir"}], "name": "List dir files python op"}',
+        pipelines.kubeflow.org/component_ref: '{}'}
+  - name: loadweights-task
+    container:
+      args: [--weights-url, '{{inputs.parameters.weights_url}}', --output-dir, /tmp/outputs/output_dir/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def loadweights_task(
+                    weights_url,
+                    output_dir,
+                            ):
+
+                    """Load COCO pretrained weights."""
+
+                    import subprocess
+                    import os
+
+                    subprocess.run([
+                        'wget',
+                        '-O',
+                        'weights.tar.gz',
+                        weights_url
+                    ],
+                    check=True)
+
+                    os.makedirs(output_dir, exist_ok=True)
+
+                    subprocess.run([
+                        'tar',
+                        'xzvf',
+                        'weights.tar.gz',
+                        '-C',
+                        output_dir
+                    ],
+                    check=True)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Loadweights task', description='Load COCO pretrained weights.')
+        _parser.add_argument("--weights-url", dest="weights_url", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = loadweights_task(**_parsed_args)
+      image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
+    inputs:
+      parameters:
+      - {name: weights_url}
+    outputs:
+      artifacts:
+      - {name: loadweights-task-output_dir, path: /tmp/outputs/output_dir/data}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Load
+          COCO pretrained weights.", "implementation": {"container": {"args": ["--weights-url",
+          {"inputValue": "weights_url"}, "--output-dir", {"outputPath": "output_dir"}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def _make_parent_dirs_and_return_path(file_path:
+          str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return
+          file_path\n\ndef loadweights_task(\n            weights_url,\n            output_dir,\n                    ):\n\n            \"\"\"Load
+          COCO pretrained weights.\"\"\"\n\n            import subprocess\n            import
+          os\n\n            subprocess.run([\n                ''wget'',\n                ''-O'',\n                ''weights.tar.gz'',\n                weights_url\n            ],\n            check=True)\n\n            os.makedirs(output_dir,
+          exist_ok=True)\n\n            subprocess.run([\n                ''tar'',\n                ''xzvf'',\n                ''weights.tar.gz'',\n                ''-C'',\n                output_dir\n            ],\n            check=True)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Loadweights task'', description=''Load
+          COCO pretrained weights.'')\n_parser.add_argument(\"--weights-url\", dest=\"weights_url\",
+          type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\",
+          dest=\"output_dir\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = loadweights_task(**_parsed_args)\n"], "image": "jsonmathsai/tf2-odapi:tf2.3.1-gpu"}},
+          "inputs": [{"name": "weights_url"}], "name": "Loadweights task", "outputs":
+          [{"name": "output_dir"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "e42411a9ae1a8c08f85f03438bd8c3941747be8ce7630de7bc51f299e7f6a611", "url":
+          "LoadWeights/component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"weights_url":
+          "{{inputs.parameters.weights_url}}"}'}
+  - name: train-eval
+    container:
+      args: [--pipeline-config, /tmp/inputs/pipeline_config/data, --record-summaries,
+        /tmp/inputs/record_summaries/data, --label-map, /tmp/inputs/label_map/data,
+        --pretrained-weights, /tmp/inputs/pretrained_weights/data, --data, /tmp/inputs/data/data,
+        --num-train-steps, '{{inputs.parameters.num_train_steps}}', --model-dir, /tmp/outputs/model_dir/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n \
+        \   os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
+        \ndef train_eval(pipeline_config, \n               record_summaries, \n  \
+        \             label_map,\n               pretrained_weights,\n           \
+        \    data,\n               num_train_steps,\n\n               model_dir):\n\
+        \    from pathlib import Path\n    import subprocess\n    import os\n    import\
+        \ re\n    import tarfile\n    import sys\n\n    print(\"Fix TF Official installation\"\
+        )\n    subprocess.check_call(\n        [\n            sys.executable,\n  \
+        \          \"-m\", \"pip\", \"install\", \n            \"--quiet\", \n   \
+        \         \"--no-warn-script-location\", \n            \"tf-models-official==2.3.0\"\
+        \n        ],\n    )\n\n    print(\"CPU Model evaluation initializing\")\n\
+        \    env = os.environ.copy()\n    env['CUDA_VISIBLE_DEVICES']=\"\"\n\n   \
+        \ subprocess.Popen(\n        [\n            sys.executable,\n            'model_main_tf2.py',\n\
+        \            '--model_dir',\n            model_dir,\n            '--checkpoint_dir',\n\
+        \            model_dir,\n            '--pipeline_config_path',\n         \
+        \   pipeline_config,\n        ],\n        env=env\n    )\n\n    print(\"Training\
+        \ model\")\n    subprocess.check_call(\n        [\n            sys.executable,\n\
+        \            'model_main_tf2.py',\n            '--model_dir',\n          \
+        \   model_dir,\n            '--num_train_steps',\n            num_train_steps,\n\
+        \            '--pipeline_config_path',\n            pipeline_config,\n   \
+        \     ],\n    )\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Train\
+        \ eval', description='')\n_parser.add_argument(\"--pipeline-config\", dest=\"\
+        pipeline_config\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --record-summaries\", dest=\"record_summaries\", type=str, required=True,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-map\", dest=\"\
+        label_map\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --pretrained-weights\", dest=\"pretrained_weights\", type=str, required=True,\
+        \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--data\", dest=\"data\"\
+        , type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+        --num-train-steps\", dest=\"num_train_steps\", type=str, required=True, default=argparse.SUPPRESS)\n\
+        _parser.add_argument(\"--model-dir\", dest=\"model_dir\", type=_make_parent_dirs_and_return_path,\
+        \ required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
+        \n_outputs = train_eval(**_parsed_args)\n"
+      image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
+      resources:
+        limits: {nvidia.com/gpu: 1}
+    inputs:
+      parameters:
+      - {name: num_train_steps}
+      artifacts:
+      - {name: download-records-output_dir, path: /tmp/inputs/data/data}
+      - {name: download-records-label_map, path: /tmp/inputs/label_map/data}
+      - {name: download-records-pipeline_config, path: /tmp/inputs/pipeline_config/data}
+      - {name: loadweights-task-output_dir, path: /tmp/inputs/pretrained_weights/data}
+      - name: record_summaries
+        path: /tmp/inputs/record_summaries/data
+        raw:
+          data: "False"
+    outputs:
+      artifacts:
+      - {name: train-eval-model_dir, path: /tmp/outputs/model_dir/data}
+    metadata:
+      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
+          {"args": ["--pipeline-config", {"inputPath": "pipeline_config"}, "--record-summaries",
+          {"inputPath": "record_summaries"}, "--label-map", {"inputPath": "label_map"},
+          "--pretrained-weights", {"inputPath": "pretrained_weights"}, "--data", {"inputPath":
+          "data"}, "--num-train-steps", {"inputValue": "num_train_steps"}, "--model-dir",
+          {"outputPath": "model_dir"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf
+          \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+          "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path),
+          exist_ok=True)\n    return file_path\n\ndef train_eval(pipeline_config,
+          \n               record_summaries, \n               label_map,\n               pretrained_weights,\n               data,\n               num_train_steps,\n\n               model_dir):\n    from
+          pathlib import Path\n    import subprocess\n    import os\n    import re\n    import
+          tarfile\n    import sys\n\n    print(\"Fix TF Official installation\")\n    subprocess.check_call(\n        [\n            sys.executable,\n            \"-m\",
+          \"pip\", \"install\", \n            \"--quiet\", \n            \"--no-warn-script-location\",
+          \n            \"tf-models-official==2.3.0\"\n        ],\n    )\n\n    print(\"CPU
+          Model evaluation initializing\")\n    env = os.environ.copy()\n    env[''CUDA_VISIBLE_DEVICES'']=\"\"\n\n    subprocess.Popen(\n        [\n            sys.executable,\n            ''model_main_tf2.py'',\n            ''--model_dir'',\n            model_dir,\n            ''--checkpoint_dir'',\n            model_dir,\n            ''--pipeline_config_path'',\n            pipeline_config,\n        ],\n        env=env\n    )\n\n    print(\"Training
+          model\")\n    subprocess.check_call(\n        [\n            sys.executable,\n            ''model_main_tf2.py'',\n            ''--model_dir'',\n             model_dir,\n            ''--num_train_steps'',\n            num_train_steps,\n            ''--pipeline_config_path'',\n            pipeline_config,\n        ],\n    )\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Train eval'', description='''')\n_parser.add_argument(\"--pipeline-config\",
+          dest=\"pipeline_config\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--record-summaries\",
+          dest=\"record_summaries\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-map\",
+          dest=\"label_map\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--pretrained-weights\",
+          dest=\"pretrained_weights\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--data\",
+          dest=\"data\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--num-train-steps\",
+          dest=\"num_train_steps\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-dir\",
+          dest=\"model_dir\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = train_eval(**_parsed_args)\n"], "image": "jsonmathsai/tf2-odapi:tf2.3.1-gpu"}},
+          "inputs": [{"name": "pipeline_config"}, {"name": "record_summaries"}, {"name":
+          "label_map"}, {"name": "pretrained_weights"}, {"name": "data"}, {"name":
+          "num_train_steps"}], "name": "Train eval", "outputs": [{"name": "model_dir"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "4ba3176dd9bb6efdfcd6a45403baa78f033a2fb850ab08d88c4e6127549edc64",
+          "url": "train_eval/component.yaml"}', pipelines.kubeflow.org/arguments.parameters: '{"num_train_steps":
+          "{{inputs.parameters.num_train_steps}}"}'}
   arguments:
     parameters:
+    - {name: num_train_steps, value: '100'}
     - {name: data_url, value: 'https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1'}
     - {name: converter_script_url, value: 'https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1'}
     - {name: pbtxt_url, value: 'https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1'}
+    - {name: weights_url, value: 'http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz'}
     - {name: num_shards, value: '1'}
   serviceAccountName: pipeline-runner

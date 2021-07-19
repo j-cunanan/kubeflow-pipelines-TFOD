@@ -62,6 +62,6 @@ if __name__ == '__main__':
     import kfp
     kfp.components.func_to_container_op(
         conversion_task,
-        base_image='jsonmathsai/tfodv2:latest',
+        base_image='jsonmathsai/tf2-odapi:tf2.3.1-gpu',
         output_component_file='component.yaml'
     )

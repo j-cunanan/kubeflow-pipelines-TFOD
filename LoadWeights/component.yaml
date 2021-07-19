@@ -1,0 +1,63 @@
+name: Loadweights task
+description: Load COCO pretrained weights.
+inputs:
+- {name: weights_url}
+outputs:
+- {name: output_dir}
+implementation:
+  container:
+    image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def _make_parent_dirs_and_return_path(file_path: str):
+          import os
+          os.makedirs(os.path.dirname(file_path), exist_ok=True)
+          return file_path
+
+      def loadweights_task(
+                  weights_url,
+                  output_dir,
+                          ):
+
+                  """Load COCO pretrained weights."""
+
+                  import subprocess
+                  import os
+
+                  subprocess.run([
+                      'wget',
+                      '-O',
+                      'weights.tar.gz',
+                      weights_url
+                  ],
+                  check=True)
+
+                  os.makedirs(output_dir, exist_ok=True)
+
+                  subprocess.run([
+                      'tar',
+                      'xzvf',
+                      'weights.tar.gz',
+                      '-C',
+                      output_dir
+                  ],
+                  check=True)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Loadweights task', description='Load COCO pretrained weights.')
+      _parser.add_argument("--weights-url", dest="weights_url", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = loadweights_task(**_parsed_args)
+    args:
+    - --weights-url
+    - {inputValue: weights_url}
+    - --output-dir
+    - {outputPath: output_dir}
