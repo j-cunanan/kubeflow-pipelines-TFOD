@@ -1,0 +1,46 @@
+name: Tfserving
+inputs:
+- {name: model_name}
+- {name: export_dir}
+implementation:
+  container:
+    image: tensorflow/serving:latest
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def tfserving(
+          model_name,
+          export_dir,
+                    ):
+          import subprocess
+          import shutil
+
+          print("Preparing files to serve...")
+          shutil.copytree(export_dir, f'/serving/{model}/1')
+
+          subprocess.run([
+              'tensorflow_model_server',
+              f'--model_name={model_name}',
+              f'--model_base_path=/models/{model_name}',
+              '--port=8500',
+              '--rest_api_port=8501',
+          ],
+          check=True)
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Tfserving', description='')
+      _parser.add_argument("--model-name", dest="model_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--export-dir", dest="export_dir", type=str, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = tfserving(**_parsed_args)
+    args:
+    - --model-name
+    - {inputValue: model_name}
+    - --export-dir
+    - {inputPath: export_dir}

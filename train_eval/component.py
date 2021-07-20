@@ -6,14 +6,16 @@ def train_eval(pipeline_config: InputPath(),
                pretrained_weights: InputPath(),
                data: InputPath(),
                num_train_steps,
+               model,
               
-               model_dir: OutputPath()):
+               model_dir: OutputPath(),
+               export_dir: OutputPath()
+              ):
     from pathlib import Path
     import subprocess
     import os
-    import re
-    import tarfile
     import sys
+    import shutil
 
     print("Fix TF Official installation")
     subprocess.check_call(
@@ -50,7 +52,7 @@ def train_eval(pipeline_config: InputPath(),
             sys.executable,
             'model_main_tf2.py',
             '--model_dir',
-             model_dir,
+            model_dir,
             '--num_train_steps',
             num_train_steps,
             '--pipeline_config_path',
@@ -58,26 +60,22 @@ def train_eval(pipeline_config: InputPath(),
         ],
     )
 
+    subprocess.check_call(
+        [
+            sys.executable,
+            'exporter_main_v2.py',
+            '--input_type',
+            'image_tensor',
+            '--pipeline_config_path',
+            pipeline_config,
+            '--trained_checkpoint_dir',
+            model_dir,
+            '--output_directory',
+            export_dir,
+        ],
+    )
+    
 
-
-
-#     subprocess.check_call(
-#         [
-#             sys.executable,
-#             'export_inference_graph.py',
-#             '--input_type',
-#             'image_tensor',
-#             '--pipeline_config_path',
-#             '/pipeline.config',
-#             '--trained_checkpoint_prefix',
-#             '/model/model.ckpt-1',
-#             '--output_directory',
-#             '/exported',
-#         ],
-#     )
-
-#     with tarfile.open(mode='w:gz', fileobj=exported) as tar:
-#         tar.add('/exported', recursive=True)
 
 if __name__ == '__main__':
     import kfp

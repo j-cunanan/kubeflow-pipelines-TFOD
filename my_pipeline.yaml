@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: first-pipeline-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-19T08:18:32.441830',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.5, pipelines.kubeflow.org/pipeline_compilation_time: '2021-07-20T02:43:46.519289',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "describe this", "inputs":
       [{"default": "100", "name": "num_train_steps", "optional": true, "type": "Integer"},
       {"default": "https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1", "name":
@@ -11,7 +11,7 @@ metadata:
       "name": "pbtxt_url", "optional": true}, {"default": "http://download.tensorflow.org/models/object_detection/tf2/20200711/efficientdet_d0_coco17_tpu-32.tar.gz",
       "name": "weights_url", "optional": true}, {"default": "1", "name": "num_shards",
       "optional": true, "type": "Integer"}], "name": "First Pipeline"}'}
-  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.5}
 spec:
   entrypoint: first-pipeline
   templates:
@@ -111,7 +111,10 @@ spec:
       artifacts:
       - {name: conversion-task-output_dir, path: /tmp/outputs/output_dir/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Transforms
           data from images+xml to TensorFlow records.", "implementation": {"container":
           {"args": ["--data-url", {"inputValue": "data_url"}, "--converter-script-url",
@@ -227,7 +230,10 @@ spec:
       - {name: download-records-output_dir, path: /tmp/outputs/output_dir/data}
       - {name: download-records-pipeline_config, path: /tmp/outputs/pipeline_config/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
           {"args": ["--output-dir", {"outputPath": "output_dir"}, "--pipeline-config",
           {"outputPath": "pipeline_config"}, "--label-map", {"outputPath": "label_map"},
@@ -336,7 +342,10 @@ spec:
       artifacts:
       - {name: conversion-task-output_dir, path: /tmp/inputs/input_dir/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
           {"args": ["--input-dir", {"inputPath": "input_dir"}], "command": ["sh",
           "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
@@ -376,7 +385,10 @@ spec:
       artifacts:
       - {name: train-eval-model_dir, path: /tmp/inputs/input_dir/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
           {"args": ["--input-dir", {"inputPath": "input_dir"}], "command": ["sh",
           "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
@@ -448,7 +460,10 @@ spec:
       artifacts:
       - {name: loadweights-task-output_dir, path: /tmp/outputs/output_dir/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Load
           COCO pretrained weights.", "implementation": {"container": {"args": ["--weights-url",
           {"inputValue": "weights_url"}, "--output-dir", {"outputPath": "output_dir"}],
@@ -535,7 +550,10 @@ spec:
       artifacts:
       - {name: train-eval-model_dir, path: /tmp/outputs/model_dir/data}
     metadata:
-      labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.6.4, pipelines.kubeflow.org/pipeline-sdk-type: kfp}
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.6.5
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/enable_caching: "true"
       annotations: {pipelines.kubeflow.org/component_spec: '{"implementation": {"container":
           {"args": ["--pipeline-config", {"inputPath": "pipeline_config"}, "--record-summaries",
           {"inputPath": "record_summaries"}, "--label-map", {"inputPath": "label_map"},

@@ -84,6 +84,21 @@ def validation_sidecar():
         ],
         mirror_volume_mounts=True,
     )
+
+def serve_sidecar(model):
+    """Serves tensorflow model as sidecar to testing container."""
+
+    return kfp.dsl.Sidecar(
+        name='tensorflow-serve',
+        image='tensorflow/serving:latest',
+        command='tensorflow_model_server',
+        args=[
+            f'--model_name={model}',
+            f'--model_base_path=/models/{model}',
+            '--rest_api_port=8501',
+        ],
+        mirror_volume_mounts=True,
+    )
 # ImportExampleGen_op = load_component_from_file('component.yaml')
 
 # StatisticsGen_op    = load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/0cc4bbd4/components/tfx/StatisticsGen/with_URI_IO/component.yaml')
@@ -93,9 +108,12 @@ def validation_sidecar():
 train_eval_op = load_component_from_file("train_eval/component.yaml")
 tfrecordgen_op = load_component_from_file("TFRecordsGen/component.yaml")
 loadweights_op = load_component_from_file("LoadWeights/component.yaml")
+tfserving_op = load_component_from_file("TFServing/component.yaml")
 
 @kfp.dsl.pipeline(name='First Pipeline', description='describe this')
-def my_pipeline(num_train_steps: int =100,
+def my_pipeline(
+    model_name: str = 'model',
+    num_train_steps: int =100,
                 data_url='https://www.dropbox.com/s/gx9zmtlkjlfg1m5/license.zip?dl=1',
                 converter_script_url='https://www.dropbox.com/s/j18c859mqkzs52o/create_licence_plate_tf_record.py?dl=1',
                 pbtxt_url='https://www.dropbox.com/s/jy7bzzgeax9b95t/licence_plate_label_map.pbtxt?dl=1',
@@ -139,15 +157,18 @@ def my_pipeline(num_train_steps: int =100,
                                    label_map=dl_task.outputs['label_map'],
                                    data=dl_task.outputs['output_dir'],
                                    pretrained_weights=loadweights_task.output,
-                                   num_train_steps=num_train_steps
+                                   num_train_steps=num_train_steps,
+                                   model=model_name
                                   )
     
     modelling_task.container.set_gpu_limit(1)
-#     modelling_task.add_sidecar(validation_sidecar())
     
-    list_dir_files_python_op(modelling_task.output)
-
+    list_dir_files_python_op(modelling_task.outputs['model_dir'])
+    list_dir_files_python_op(modelling_task.outputs['export_dir'])
+    
+    tfserving_task = tfserving_op(model_name=model_name,
+                                 export_dir=modelling_task.outputs['export_dir'])
 if __name__ == '__main__':
     # Compiling the pipeline
-    kfp.compiler.Compiler().compile(my_pipeline, 'my_pipeline.yaml')
+    kfp.compiler.Compiler().compile(my_pipeline, 'my_pipeline.tar.gz')
     

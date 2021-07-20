@@ -1,3 +1,4 @@
+import kfp
 from kfp.components import InputPath, OutputPath
 
 def loadweights_task(
@@ -5,7 +6,14 @@ def loadweights_task(
             output_dir: OutputPath(),
                     ):
     
-            """Load COCO pretrained weights."""
+            """Load pretrained weights.
+            
+            Args: 
+                weights_url: Link to a Tar GZ file which contains a 'checkpoint' directory with valid TF checkpoints file.
+            
+            Returns:
+                output_dir: KFP compatible path
+            """
         
             import subprocess
             import os
@@ -31,7 +39,6 @@ def loadweights_task(
             
 
 if __name__ == '__main__':
-    import kfp
     kfp.components.func_to_container_op(
         loadweights_task,
         base_image='jsonmathsai/tf2-odapi:tf2.3.1-gpu',

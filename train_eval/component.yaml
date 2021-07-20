@@ -6,8 +6,10 @@ inputs:
 - {name: pretrained_weights}
 - {name: data}
 - {name: num_train_steps}
+- {name: model}
 outputs:
 - {name: model_dir}
+- {name: export_dir}
 implementation:
   container:
     image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
@@ -22,35 +24,42 @@ implementation:
       \ os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\
       \ndef train_eval(pipeline_config, \n               record_summaries, \n    \
       \           label_map,\n               pretrained_weights,\n               data,\n\
-      \               num_train_steps,\n\n               model_dir):\n    from pathlib\
-      \ import Path\n    import subprocess\n    import os\n    import re\n    import\
-      \ tarfile\n    import sys\n\n    print(\"Fix TF Official installation\")\n \
-      \   subprocess.check_call(\n        [\n            sys.executable,\n       \
-      \     \"-m\", \"pip\", \"install\", \n            \"--quiet\", \n          \
-      \  \"--no-warn-script-location\", \n            \"tf-models-official==2.3.0\"\
-      \n        ],\n    )\n\n    print(\"CPU Model evaluation initializing\")\n  \
-      \  env = os.environ.copy()\n    env['CUDA_VISIBLE_DEVICES']=\"\"\n\n    subprocess.Popen(\n\
-      \        [\n            sys.executable,\n            'model_main_tf2.py',\n\
-      \            '--model_dir',\n            model_dir,\n            '--checkpoint_dir',\n\
-      \            model_dir,\n            '--pipeline_config_path',\n           \
-      \ pipeline_config,\n        ],\n        env=env\n    )\n\n    print(\"Training\
-      \ model\")\n    subprocess.check_call(\n        [\n            sys.executable,\n\
-      \            'model_main_tf2.py',\n            '--model_dir',\n            \
-      \ model_dir,\n            '--num_train_steps',\n            num_train_steps,\n\
-      \            '--pipeline_config_path',\n            pipeline_config,\n     \
-      \   ],\n    )\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Train\
-      \ eval', description='')\n_parser.add_argument(\"--pipeline-config\", dest=\"\
-      pipeline_config\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
-      --record-summaries\", dest=\"record_summaries\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      \               num_train_steps,\n               model,\n\n               model_dir,\n\
+      \               export_dir\n              ):\n    from pathlib import Path\n\
+      \    import subprocess\n    import os\n    import sys\n    import shutil\n\n\
+      \    print(\"Fix TF Official installation\")\n    subprocess.check_call(\n \
+      \       [\n            sys.executable,\n            \"-m\", \"pip\", \"install\"\
+      , \n            \"--quiet\", \n            \"--no-warn-script-location\", \n\
+      \            \"tf-models-official==2.3.0\"\n        ],\n    )\n\n    print(\"\
+      CPU Model evaluation initializing\")\n    env = os.environ.copy()\n    env['CUDA_VISIBLE_DEVICES']=\"\
+      \"\n\n    subprocess.Popen(\n        [\n            sys.executable,\n      \
+      \      'model_main_tf2.py',\n            '--model_dir',\n            model_dir,\n\
+      \            '--checkpoint_dir',\n            model_dir,\n            '--pipeline_config_path',\n\
+      \            pipeline_config,\n        ],\n        env=env\n    )\n\n    print(\"\
+      Training model\")\n    subprocess.check_call(\n        [\n            sys.executable,\n\
+      \            'model_main_tf2.py',\n            '--model_dir',\n            model_dir,\n\
+      \            '--num_train_steps',\n            num_train_steps,\n          \
+      \  '--pipeline_config_path',\n            pipeline_config,\n        ],\n   \
+      \ )\n\n    subprocess.check_call(\n        [\n            sys.executable,\n\
+      \            'exporter_main_v2.py',\n            '--input_type',\n         \
+      \   'image_tensor',\n            '--pipeline_config_path',\n            pipeline_config,\n\
+      \            '--trained_checkpoint_dir',\n            model_dir,\n         \
+      \   '--output_directory',\n            export_dir,\n        ],\n    )\n\nimport\
+      \ argparse\n_parser = argparse.ArgumentParser(prog='Train eval', description='')\n\
+      _parser.add_argument(\"--pipeline-config\", dest=\"pipeline_config\", type=str,\
+      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--record-summaries\"\
+      , dest=\"record_summaries\", type=str, required=True, default=argparse.SUPPRESS)\n\
       _parser.add_argument(\"--label-map\", dest=\"label_map\", type=str, required=True,\
       \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--pretrained-weights\"\
       , dest=\"pretrained_weights\", type=str, required=True, default=argparse.SUPPRESS)\n\
       _parser.add_argument(\"--data\", dest=\"data\", type=str, required=True, default=argparse.SUPPRESS)\n\
       _parser.add_argument(\"--num-train-steps\", dest=\"num_train_steps\", type=str,\
-      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-dir\"\
-      , dest=\"model_dir\", type=_make_parent_dirs_and_return_path, required=True,\
-      \ default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n\
-      _outputs = train_eval(**_parsed_args)\n"
+      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model\"\
+      , dest=\"model\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --model-dir\", dest=\"model_dir\", type=_make_parent_dirs_and_return_path, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--export-dir\", dest=\"\
+      export_dir\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n\
+      _parsed_args = vars(_parser.parse_args())\n\n_outputs = train_eval(**_parsed_args)\n"
     args:
     - --pipeline-config
     - {inputPath: pipeline_config}
@@ -64,5 +73,9 @@ implementation:
     - {inputPath: data}
     - --num-train-steps
     - {inputValue: num_train_steps}
+    - --model
+    - {inputValue: model}
     - --model-dir
     - {outputPath: model_dir}
+    - --export-dir
+    - {outputPath: export_dir}
