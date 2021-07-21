@@ -1,17 +1,21 @@
 from kfp.components import InputPath, OutputPath
 
+
 def conversion_task(
             data_url,
             converter_script_url,
             pbtxt_url,
             num_shards,
+    
             output_dir: OutputPath(),
+            label_map: OutputPath(),
                     ):
     
             """Transforms data from images+xml to TensorFlow records."""
         
             import subprocess
             import sys
+            import requests
             
             
             subprocess.run([
@@ -46,6 +50,10 @@ def conversion_task(
             ],
             check=True)
             
+            with open(label_map, 'wb') as file:
+                r = requests.get(pbtxt_url, allow_redirects=True)
+                file.write(r.content)
+        
             subprocess.check_call(
                 [
                     sys.executable,

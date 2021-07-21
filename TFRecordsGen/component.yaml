@@ -7,9 +7,10 @@ inputs:
 - {name: num_shards}
 outputs:
 - {name: output_dir}
+- {name: label_map}
 implementation:
   container:
-    image: jsonmathsai/tfodv2:latest
+    image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
     command:
     - sh
     - -ec
@@ -28,13 +29,16 @@ implementation:
                   converter_script_url,
                   pbtxt_url,
                   num_shards,
+
                   output_dir,
+                  label_map,
                           ):
 
                   """Transforms data from images+xml to TensorFlow records."""
 
                   import subprocess
                   import sys
+                  import requests
 
                   subprocess.run([
                       'wget',
@@ -68,6 +72,10 @@ implementation:
                   ],
                   check=True)
 
+                  with open(label_map, 'wb') as file:
+                      r = requests.get(pbtxt_url, allow_redirects=True)
+                      file.write(r.content)
+
                   subprocess.check_call(
                       [
                           sys.executable,
@@ -87,6 +95,7 @@ implementation:
       _parser.add_argument("--pbtxt-url", dest="pbtxt_url", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--num-shards", dest="num_shards", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--output-dir", dest="output_dir", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--label-map", dest="label_map", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
       _parsed_args = vars(_parser.parse_args())
 
       _outputs = conversion_task(**_parsed_args)
@@ -101,3 +110,5 @@ implementation:
     - {inputValue: num_shards}
     - --output-dir
     - {outputPath: output_dir}
+    - --label-map
+    - {outputPath: label_map}
