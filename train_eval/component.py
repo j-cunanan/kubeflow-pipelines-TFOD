@@ -81,6 +81,6 @@ if __name__ == '__main__':
     import kfp
     kfp.components.func_to_container_op(
         train_eval,
-        base_image='jsonmathsai/tf2-odapi:tf2.3.1-gpu',
+        base_image='jsonmathsai/tf2-odapi:ampere',
         output_component_file='component.yaml'
     )

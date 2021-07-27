@@ -12,7 +12,7 @@ outputs:
 - {name: export_dir}
 implementation:
   container:
-    image: jsonmathsai/tf2-odapi:tf2.3.1-gpu
+    image: jsonmathsai/tf2-odapi:ampere
     command:
     - sh
     - -ec
